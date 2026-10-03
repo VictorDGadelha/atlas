@@ -2,7 +2,8 @@ from datetime import date, timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.db.models import Sum
+from django.db.models import Count, Q, Sum
+from django.db.models.functions import TruncWeek
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -232,3 +233,63 @@ def checklist_marcar(request, pk):
         'feitas': feitas,
         'percentual': percentual,
     })
+
+PERIODOS = {7: '7 dias', 30: '30 dias', 90: '90 dias', 365: '1 ano'}
+
+
+@login_required
+def historico(request):
+    try:
+        periodo = int(request.GET.get('periodo', 30))
+    except ValueError:
+        periodo = 30
+    if periodo not in PERIODOS:
+        periodo = 30
+
+    hoje = timezone.localdate()
+    inicio = hoje - timedelta(days=periodo - 1)
+
+    # Peso
+    pesos = list(
+        RegistroPeso.objects
+        .filter(usuario=request.user, data__gte=inicio, data__lte=hoje)
+        .order_by('data')
+    )
+    resumo_peso = None
+    if pesos:
+        resumo_peso = {
+            'inicial': pesos[0].peso,
+            'atual': pesos[-1].peso,
+            'variacao': pesos[-1].peso - pesos[0].peso,
+            'registros': len(pesos),
+        }
+
+    # Checklist por semana (inclui atividades arquivadas: o histórico é mantido)
+    semanas = (
+        AtividadeDia.objects
+        .filter(atividade__usuario=request.user, data__gte=inicio, data__lte=hoje)
+        .annotate(semana=TruncWeek('data'))
+        .values('semana')
+        .annotate(total=Count('id'), feitas=Count('id', filter=Q(concluida=True)))
+        .order_by('semana')
+    )
+    semanas = list(semanas)
+
+    dados = {
+        'peso': {
+            'labels': [p.data.strftime('%d/%m') for p in pesos],
+            'valores': [float(p.peso) for p in pesos],
+        },
+        'checklist': {
+            'labels': ['Sem. ' + s['semana'].strftime('%d/%m') for s in semanas],
+            'valores': [round(s['feitas'] * 100 / s['total']) for s in semanas],
+        },
+    }
+
+    return render(request, 'core/historico.html', {
+        'periodo': periodo,
+        'periodos': PERIODOS,
+        'resumo_peso': resumo_peso,
+        'dados': dados,
+    })
+

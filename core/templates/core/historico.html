@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+{% block title %}Histórico{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+    <h1 class="h3 m-0">Histórico</h1>
+    <div class="btn-group btn-group-sm">
+        {% for valor, rotulo in periodos.items %}
+        <a href="?periodo={{ valor }}"
+           class="btn {% if valor == periodo %}btn-primary{% else %}btn-outline-primary{% endif %}">
+            {{ rotulo }}
+        </a>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="row g-4">
+
+    <!-- PESO -->
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h2 class="h5">Evolução do peso</h2>
+
+                {% if resumo_peso %}
+                <div class="d-flex flex-wrap gap-4 mb-3">
+                    <div>
+                        <div class="text-muted small">Primeiro registro</div>
+                        <strong>{{ resumo_peso.inicial }} kg</strong>
+                    </div>
+                    <div>
+                        <div class="text-muted small">Último registro</div>
+                        <strong>{{ resumo_peso.atual }} kg</strong>
+                    </div>
+                    {% if resumo_peso.registros > 1 %}
+                    <div>
+                        <div class="text-muted small">Variação no período</div>
+                        <strong>
+                            {% if resumo_peso.variacao > 0 %}+{% endif %}{{ resumo_peso.variacao }} kg
+                        </strong>
+                    </div>
+                    {% endif %}
+                    <div>
+                        <div class="text-muted small">Registros</div>
+                        <strong>{{ resumo_peso.registros }}</strong>
+                    </div>
+                </div>
+                <div style="position: relative; height: 300px;">
+                    <canvas id="grafico-peso"></canvas>
+                </div>
+                {% else %}
+                <p class="text-muted mb-0">Nenhum registro de peso neste período.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- CHECKLIST -->
+    <div class="col-12">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h2 class="h5">Conclusão do checklist por semana</h2>
+
+                {% if dados.checklist.valores %}
+                <div style="position: relative; height: 280px;">
+                    <canvas id="grafico-checklist"></canvas>
+                </div>
+                <div class="form-text mt-2">
+                    Considera apenas os dias em que o checklist foi aberto. A primeira e a última
+                    semana podem estar incompletas.
+                </div>
+                {% else %}
+                <p class="text-muted mb-0">Nenhum dado de checklist neste período.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+</div>
+
+{{ dados|json_script:"dados-graficos" }}
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+const dados = JSON.parse(document.getElementById('dados-graficos').textContent);
+
+const canvasPeso = document.getElementById('grafico-peso');
+if (canvasPeso) {
+    new Chart(canvasPeso, {
+        type: 'line',
+        data: {
+            labels: dados.peso.labels,
+            datasets: [{
+                label: 'Peso (kg)',
+                data: dados.peso.valores,
+                borderColor: '#0d6efd',
+                backgroundColor: '#0d6efd',
+                tension: 0.25,
+                pointRadius: 4,
+            }],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { title: { display: true, text: 'kg' } } },
+        },
+    });
+}
+
+const canvasChecklist = document.getElementById('grafico-checklist');
+if (canvasChecklist) {
+    new Chart(canvasChecklist, {
+        type: 'bar',
+        data: {
+            labels: dados.checklist.labels,
+            datasets: [{
+                label: '% concluído',
+                data: dados.checklist.valores,
+                backgroundColor: '#198754',
+            }],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: {
+                    min: 0,
+                    max: 100,
+                    title: { display: true, text: '%' },
+                },
+            },
+        },
+    });
+}
+</script>
+{% endblock %}

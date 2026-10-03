@@ -12,5 +12,6 @@ urlpatterns = [
     path('checklist/atividades/nova/', views.atividade_criar, name='atividade_criar'),
     path('checklist/atividades/<int:pk>/arquivar/', views.atividade_arquivar, name='atividade_arquivar'),
     path('checklist/marcar/<int:pk>/', views.checklist_marcar, name='checklist_marcar'),
+    path('historico/', views.historico, name='historico'),
     
 ]
