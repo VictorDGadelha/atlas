@@ -120,3 +120,7 @@ STATIC_URL = 'static/'
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'home'
 LOGOUT_REDIRECT_URL = 'login'
+
+from django.contrib.messages import constants as messages_constants
+
+MESSAGE_TAGS = {messages_constants.ERROR: 'danger'}

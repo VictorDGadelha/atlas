@@ -199,14 +199,14 @@ def checklist(request):
 @login_required
 @require_POST
 def atividade_criar(request):
-    form = AtividadeForm(request.POST)
+    form = AtividadeForm(request.POST, usuario=request.user)
     if form.is_valid():
         atividade = form.save(commit=False)
         atividade.usuario = request.user
         atividade.save()
         messages.success(request, 'Atividade criada! Ela aparece a partir de hoje.')
     else:
-        messages.error(request, 'Informe um nome válido para a atividade.')
+        messages.error(request, form.errors['nome'][0])
     return redirect('checklist')
 
 
