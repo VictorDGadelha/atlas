@@ -13,7 +13,38 @@ from .models import Atividade, AtividadeDia, Refeicao, RegistroPeso
 
 @login_required
 def home(request):
-    return render(request, 'core/home.html')
+    hoje = timezone.localdate()
+
+    # Peso
+    registros = list(RegistroPeso.objects.filter(usuario=request.user)[:2])
+    ultimo_peso = registros[0] if registros else None
+    peso_hoje = ultimo_peso if ultimo_peso and ultimo_peso.data == hoje else None
+    variacao = registros[0].peso - registros[1].peso if len(registros) > 1 else None
+    form_peso = RegistroPesoForm(
+        initial={'data': hoje, 'peso': peso_hoje.peso if peso_hoje else None}
+    )
+
+    # Alimentação
+    refeicoes = Refeicao.objects.filter(usuario=request.user, data=hoje)
+    total_calorias = refeicoes.aggregate(total=Sum('calorias'))['total'] or 0
+
+    # Checklist
+    itens = _gerar_lista_do_dia(request.user, hoje)
+    total, feitas, percentual = _resumo_checklist(request.user, hoje)
+
+    return render(request, 'core/home.html', {
+        'hoje': hoje,
+        'ultimo_peso': ultimo_peso,
+        'peso_hoje': peso_hoje,
+        'variacao': variacao,
+        'form_peso': form_peso,
+        'refeicoes': refeicoes,
+        'total_calorias': total_calorias,
+        'itens': itens,
+        'total': total,
+        'feitas': feitas,
+        'percentual': percentual,
+    })
 
 @login_required
 def peso(request):
@@ -27,6 +58,8 @@ def peso(request):
                 defaults={'peso': form.cleaned_data['peso']},
             )
             messages.success(request, 'Peso salvo!')
+            if request.POST.get('next') == 'home':
+                return redirect('home')
             return redirect('peso')
     else:
         form = RegistroPesoForm(initial={'data': timezone.localdate()})
@@ -122,16 +155,9 @@ def _resumo_checklist(usuario, dia):
     percentual = round(feitas * 100 / total) if total else 0
     return total, feitas, percentual
 
-
-@login_required
-def checklist(request):
-    dia = _dia_da_requisicao(request)
-
-    # Gera a lista do dia: cria a marcação das atividades que ainda não têm
+def _gerar_lista_do_dia(usuario, dia):
     atividades = list(
-        Atividade.objects.filter(
-            usuario=request.user, ativa=True, criada_em__date__lte=dia
-        )
+        Atividade.objects.filter(usuario=usuario, ativa=True, criada_em__date__lte=dia)
     )
     existentes = set(
         AtividadeDia.objects.filter(atividade__in=atividades, data=dia)
@@ -141,13 +167,19 @@ def checklist(request):
         [AtividadeDia(atividade=a, data=dia) for a in atividades if a.id not in existentes],
         ignore_conflicts=True,
     )
-
-    itens = (
+    return (
         AtividadeDia.objects
-        .filter(atividade__usuario=request.user, atividade__ativa=True, data=dia)
+        .filter(atividade__usuario=usuario, atividade__ativa=True, data=dia)
         .select_related('atividade')
         .order_by('atividade__nome')
     )
+
+@login_required
+def checklist(request):
+    dia = _dia_da_requisicao(request)
+    
+    itens = _gerar_lista_do_dia(request.user, dia)
+    
     total, feitas, percentual = _resumo_checklist(request.user, dia)
 
     return render(request, 'core/checklist.html', {

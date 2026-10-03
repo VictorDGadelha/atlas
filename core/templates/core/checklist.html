@@ -74,36 +74,5 @@
     </div>
 </div>
 
-<script>
-const csrfToken = '{{ csrf_token }}';
-
-document.querySelectorAll('.check-atividade').forEach((box) => {
-    box.addEventListener('change', async () => {
-        const marcado = box.checked;
-        const rotulo = box.nextElementSibling;
-        try {
-            const resposta = await fetch(box.dataset.url, {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': csrfToken,
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                },
-                body: 'concluida=' + marcado,
-            });
-            if (!resposta.ok) throw new Error('Falha ao salvar');
-            const dados = await resposta.json();
-
-            rotulo.classList.toggle('text-decoration-line-through', dados.concluida);
-            rotulo.classList.toggle('text-muted', dados.concluida);
-            document.getElementById('feitas').textContent = dados.feitas;
-            document.getElementById('total').textContent = dados.total;
-            document.getElementById('percentual').textContent = dados.percentual;
-            document.getElementById('barra').style.width = dados.percentual + '%';
-        } catch (erro) {
-            box.checked = !marcado;  // desfaz se deu erro
-            alert('Não foi possível salvar. Tente novamente.');
-        }
-    });
-});
-</script>
+{% include 'core/_checklist_script.html' %}
 {% endblock %}

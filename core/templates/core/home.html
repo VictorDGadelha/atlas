@@ -1,6 +1,121 @@
 {% extends 'base.html' %}
+{% block title %}Hoje{% endblock %}
 
 {% block content %}
-<h1 class="h3">Olá, {{ user.username }}!</h1>
-<p class="text-muted">Aqui vai ficar o seu painel do dia.</p>
+<div class="mb-4">
+    <h1 class="h3 m-0">Olá, {{ user.username }}!</h1>
+    <div class="text-muted">{{ hoje|date:"l, d \d\e F" }}</div>
+</div>
+
+<div class="row g-4">
+
+    <!-- PESO -->
+    <div class="col-lg-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h2 class="h5 m-0">Peso</h2>
+                    <a href="{% url 'peso' %}" class="small">Histórico</a>
+                </div>
+
+                {% if peso_hoje %}
+                    <div class="display-6">{{ peso_hoje.peso }} kg</div>
+                    <div class="small text-muted mb-3">
+                        registrado hoje
+                        {% if variacao is not None %}
+                            · {% if variacao > 0 %}+{{ variacao }}{% else %}{{ variacao }}{% endif %} kg
+                            vs. registro anterior
+                        {% endif %}
+                    </div>
+                {% elif ultimo_peso %}
+                    <div class="text-muted small">Último registro ({{ ultimo_peso.data|date:"d/m/Y" }})</div>
+                    <div class="display-6">{{ ultimo_peso.peso }} kg</div>
+                    <div class="small text-warning-emphasis mb-3">Você ainda não registrou hoje.</div>
+                {% else %}
+                    <p class="text-muted">Nenhum registro ainda.</p>
+                {% endif %}
+
+                <form method="post" action="{% url 'peso' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="home">
+                    <input type="hidden" name="data" value="{{ hoje|date:'Y-m-d' }}">
+                    <div class="input-group">
+                        {{ form_peso.peso }}
+                        <button class="btn btn-primary">Salvar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ALIMENTAÇÃO -->
+    <div class="col-lg-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h2 class="h5 m-0">Alimentação</h2>
+                    <a href="{% url 'alimentacao' %}" class="btn btn-outline-primary btn-sm">+ Refeição</a>
+                </div>
+
+                <div class="mb-3">
+                    <span class="badge text-bg-secondary">Total: {{ total_calorias }} kcal</span>
+                </div>
+
+                {% for r in refeicoes %}
+                <div class="border-bottom py-2">
+                    <div class="d-flex justify-content-between">
+                        <strong class="small">{{ r.get_tipo_display }}</strong>
+                        <span class="text-muted small">
+                            {% if r.calorias %}{{ r.calorias }} kcal{% endif %}
+                        </span>
+                    </div>
+                    <div class="small">{{ r.descricao|truncatechars:70 }}</div>
+                </div>
+                {% empty %}
+                <p class="text-muted mb-0">Nenhuma refeição registrada hoje.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- CHECKLIST -->
+    <div class="col-lg-4">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h2 class="h5 m-0">Checklist</h2>
+                    <span class="text-muted small">
+                        <span id="feitas">{{ feitas }}</span>/<span id="total">{{ total }}</span>
+                    </span>
+                </div>
+
+                <div class="progress mb-3" role="progressbar">
+                    <div id="barra" class="progress-bar" style="width: {{ percentual }}%">
+                        <span id="percentual">{{ percentual }}</span>%
+                    </div>
+                </div>
+
+                <ul class="list-group list-group-flush">
+                    {% for item in itens %}
+                    <li class="list-group-item d-flex align-items-center gap-2 px-0">
+                        <input class="form-check-input m-0 check-atividade" type="checkbox"
+                               id="item-{{ item.pk }}"
+                               data-url="{% url 'checklist_marcar' item.pk %}"
+                               {% if item.concluida %}checked{% endif %}>
+                        <label class="flex-grow-1 {% if item.concluida %}text-decoration-line-through text-muted{% endif %}"
+                               for="item-{{ item.pk }}">{{ item.atividade.nome }}</label>
+                    </li>
+                    {% empty %}
+                    <li class="list-group-item px-0 text-muted">
+                        Nenhuma atividade. <a href="{% url 'checklist' %}">Cadastre uma</a>.
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+{% include 'core/_checklist_script.html' %}
 {% endblock %}
