@@ -1,11 +1,14 @@
+from datetime import date, timedelta
+
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db.models import Sum
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from .forms import RegistroPesoForm
-from .models import RegistroPeso
+from .forms import RefeicaoForm, RegistroPesoForm
+from .models import Refeicao, RegistroPeso
 
 @login_required
 def home(request):
@@ -48,3 +51,63 @@ def peso_excluir(request, pk):
     registro.delete()
     messages.success(request, 'Registro excluído.')
     return redirect('peso')
+
+def _dia_da_requisicao(request):
+    """Lê ?data=AAAA-MM-DD; se faltar ou for inválida, usa hoje."""
+    try:
+        return date.fromisoformat(request.GET.get('data', ''))
+    except ValueError:
+        return timezone.localdate()
+
+
+@login_required
+def alimentacao(request):
+    dia = _dia_da_requisicao(request)
+
+    if request.method == 'POST':
+        form = RefeicaoForm(request.POST)
+        if form.is_valid():
+            refeicao = form.save(commit=False)
+            refeicao.usuario = request.user
+            refeicao.save()
+            messages.success(request, 'Refeição registrada!')
+            return redirect(f"{request.path}?data={refeicao.data.isoformat()}")
+    else:
+        form = RefeicaoForm(initial={'data': dia})
+
+    refeicoes = Refeicao.objects.filter(usuario=request.user, data=dia)
+    total_calorias = refeicoes.aggregate(total=Sum('calorias'))['total'] or 0
+
+    return render(request, 'core/alimentacao.html', {
+        'form': form,
+        'dia': dia,
+        'dia_anterior': dia - timedelta(days=1),
+        'dia_seguinte': dia + timedelta(days=1),
+        'eh_hoje': dia == timezone.localdate(),
+        'refeicoes': refeicoes,
+        'total_calorias': total_calorias,
+    })
+
+
+@login_required
+def refeicao_editar(request, pk):
+    refeicao = get_object_or_404(Refeicao, pk=pk, usuario=request.user)
+    if request.method == 'POST':
+        form = RefeicaoForm(request.POST, instance=refeicao)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Refeição atualizada!')
+            return redirect(f"/alimentacao/?data={refeicao.data.isoformat()}")
+    else:
+        form = RefeicaoForm(instance=refeicao)
+    return render(request, 'core/refeicao_form.html', {'form': form, 'refeicao': refeicao})
+
+
+@login_required
+@require_POST
+def refeicao_excluir(request, pk):
+    refeicao = get_object_or_404(Refeicao, pk=pk, usuario=request.user)
+    data = refeicao.data
+    refeicao.delete()
+    messages.success(request, 'Refeição excluída.')
+    return redirect(f"/alimentacao/?data={data.isoformat()}")

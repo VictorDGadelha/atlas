@@ -10,7 +10,8 @@
     <nav class="navbar navbar-dark bg-dark mb-4">
         <div class="container">
             <a class="navbar-brand" href="{% url 'home' %}">Painel Pessoal</a>
-            <a class="nav-link text-white me-auto ms-3" href="{% url 'peso' %}">Peso</a>
+            <a class="nav-link text-white ms-3" href="{% url 'peso' %}">Peso</a>
+            <a class="nav-link text-white me-auto ms-3" href="{% url 'alimentacao' %}">Alimentação</a>
             {% if user.is_authenticated %}
             <form method="post" action="{% url 'logout' %}" class="d-flex align-items-center gap-2 m-0">
                 {% csrf_token %}

@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% block title %}Alimentação{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+    <h1 class="h3 m-0">Alimentação</h1>
+    <div class="btn-group">
+        <a class="btn btn-outline-secondary btn-sm" href="?data={{ dia_anterior|date:'Y-m-d' }}">&larr;</a>
+        <span class="btn btn-light btn-sm disabled">
+            {% if eh_hoje %}Hoje, {% endif %}{{ dia|date:"d/m/Y" }}
+        </span>
+        <a class="btn btn-outline-secondary btn-sm" href="?data={{ dia_seguinte|date:'Y-m-d' }}">&rarr;</a>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-5">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h2 class="h5">Nova refeição</h2>
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ form.data.id_for_label }}">Data</label>
+                        {{ form.data }}
+                        {{ form.data.errors }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ form.tipo.id_for_label }}">Refeição</label>
+                        {{ form.tipo }}
+                        {{ form.tipo.errors }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ form.descricao.id_for_label }}">O que comeu</label>
+                        {{ form.descricao }}
+                        {{ form.descricao.errors }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ form.calorias.id_for_label }}">Calorias (kcal)</label>
+                        {{ form.calorias }}
+                        {{ form.calorias.errors }}
+                    </div>
+                    <button class="btn btn-primary w-100">Adicionar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-7">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h2 class="h5 m-0">Refeições do dia</h2>
+                    <span class="badge text-bg-secondary">Total: {{ total_calorias }} kcal</span>
+                </div>
+
+                {% for r in refeicoes %}
+                <div class="border rounded p-3 mb-2">
+                    <div class="d-flex justify-content-between">
+                        <strong>{{ r.get_tipo_display }}</strong>
+                        <span class="text-muted small">
+                            {% if r.calorias %}{{ r.calorias }} kcal{% else %}sem calorias{% endif %}
+                        </span>
+                    </div>
+                    <div class="my-2">{{ r.descricao|linebreaksbr }}</div>
+                    <div class="d-flex gap-2">
+                        <a class="btn btn-outline-secondary btn-sm"
+                           href="{% url 'refeicao_editar' r.pk %}">Editar</a>
+                        <form method="post" action="{% url 'refeicao_excluir' r.pk %}"
+                              onsubmit="return confirm('Excluir esta refeição?');">
+                            {% csrf_token %}
+                            <button class="btn btn-outline-danger btn-sm">Excluir</button>
+                        </form>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-muted mb-0">Nenhuma refeição registrada neste dia.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
