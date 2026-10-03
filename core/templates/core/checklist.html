@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+{% block title %}Checklist{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
+    <h1 class="h3 m-0">Checklist do dia</h1>
+    <div class="btn-group">
+        <a class="btn btn-outline-secondary btn-sm" href="?data={{ dia_anterior|date:'Y-m-d' }}">&larr;</a>
+        <span class="btn btn-light btn-sm disabled">
+            {% if eh_hoje %}Hoje, {% endif %}{{ dia|date:"d/m/Y" }}
+        </span>
+        <a class="btn btn-outline-secondary btn-sm" href="?data={{ dia_seguinte|date:'Y-m-d' }}">&rarr;</a>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-7">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <div class="d-flex justify-content-between mb-2">
+                    <h2 class="h5 m-0">Atividades</h2>
+                    <span class="text-muted small">
+                        <span id="feitas">{{ feitas }}</span>/<span id="total">{{ total }}</span> concluídas
+                    </span>
+                </div>
+
+                <div class="progress mb-3" role="progressbar">
+                    <div id="barra" class="progress-bar" style="width: {{ percentual }}%">
+                        <span id="percentual">{{ percentual }}</span>%
+                    </div>
+                </div>
+
+                <ul class="list-group list-group-flush">
+                    {% for item in itens %}
+                    <li class="list-group-item d-flex align-items-center gap-2 px-0">
+                        <input class="form-check-input m-0 check-atividade" type="checkbox"
+                               id="item-{{ item.pk }}"
+                               data-url="{% url 'checklist_marcar' item.pk %}"
+                               {% if item.concluida %}checked{% endif %}>
+                        <label class="flex-grow-1 {% if item.concluida %}text-decoration-line-through text-muted{% endif %}"
+                               for="item-{{ item.pk }}">{{ item.atividade.nome }}</label>
+                        <form method="post" action="{% url 'atividade_arquivar' item.atividade.pk %}"
+                              onsubmit="return confirm('Arquivar esta atividade? Ela some das listas, mas o histórico fica.');">
+                            {% csrf_token %}
+                            <button class="btn btn-outline-secondary btn-sm">Arquivar</button>
+                        </form>
+                    </li>
+                    {% empty %}
+                    <li class="list-group-item px-0 text-muted">
+                        Nenhuma atividade neste dia. Cadastre uma ao lado.
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-5">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h2 class="h5">Nova atividade</h2>
+                <form method="post" action="{% url 'atividade_criar' %}">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        {{ form.nome }}
+                    </div>
+                    <button class="btn btn-primary w-100">Adicionar</button>
+                    <div class="form-text mt-2">
+                        A atividade se repete todos os dias a partir de hoje.
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const csrfToken = '{{ csrf_token }}';
+
+document.querySelectorAll('.check-atividade').forEach((box) => {
+    box.addEventListener('change', async () => {
+        const marcado = box.checked;
+        const rotulo = box.nextElementSibling;
+        try {
+            const resposta = await fetch(box.dataset.url, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'concluida=' + marcado,
+            });
+            if (!resposta.ok) throw new Error('Falha ao salvar');
+            const dados = await resposta.json();
+
+            rotulo.classList.toggle('text-decoration-line-through', dados.concluida);
+            rotulo.classList.toggle('text-muted', dados.concluida);
+            document.getElementById('feitas').textContent = dados.feitas;
+            document.getElementById('total').textContent = dados.total;
+            document.getElementById('percentual').textContent = dados.percentual;
+            document.getElementById('barra').style.width = dados.percentual + '%';
+        } catch (erro) {
+            box.checked = !marcado;  // desfaz se deu erro
+            alert('Não foi possível salvar. Tente novamente.');
+        }
+    });
+});
+</script>
+{% endblock %}

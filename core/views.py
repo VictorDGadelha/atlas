@@ -3,12 +3,13 @@ from datetime import date, timedelta
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from .forms import RefeicaoForm, RegistroPesoForm
-from .models import Refeicao, RegistroPeso
+from .forms import AtividadeForm, RefeicaoForm, RegistroPesoForm
+from .models import Atividade, AtividadeDia, Refeicao, RegistroPeso
 
 @login_required
 def home(request):
@@ -111,3 +112,91 @@ def refeicao_excluir(request, pk):
     refeicao.delete()
     messages.success(request, 'Refeição excluída.')
     return redirect(f"/alimentacao/?data={data.isoformat()}")
+
+def _resumo_checklist(usuario, dia):
+    itens = AtividadeDia.objects.filter(
+        atividade__usuario=usuario, atividade__ativa=True, data=dia
+    )
+    total = itens.count()
+    feitas = itens.filter(concluida=True).count()
+    percentual = round(feitas * 100 / total) if total else 0
+    return total, feitas, percentual
+
+
+@login_required
+def checklist(request):
+    dia = _dia_da_requisicao(request)
+
+    # Gera a lista do dia: cria a marcação das atividades que ainda não têm
+    atividades = list(
+        Atividade.objects.filter(
+            usuario=request.user, ativa=True, criada_em__date__lte=dia
+        )
+    )
+    existentes = set(
+        AtividadeDia.objects.filter(atividade__in=atividades, data=dia)
+        .values_list('atividade_id', flat=True)
+    )
+    AtividadeDia.objects.bulk_create(
+        [AtividadeDia(atividade=a, data=dia) for a in atividades if a.id not in existentes],
+        ignore_conflicts=True,
+    )
+
+    itens = (
+        AtividadeDia.objects
+        .filter(atividade__usuario=request.user, atividade__ativa=True, data=dia)
+        .select_related('atividade')
+        .order_by('atividade__nome')
+    )
+    total, feitas, percentual = _resumo_checklist(request.user, dia)
+
+    return render(request, 'core/checklist.html', {
+        'form': AtividadeForm(),
+        'dia': dia,
+        'dia_anterior': dia - timedelta(days=1),
+        'dia_seguinte': dia + timedelta(days=1),
+        'eh_hoje': dia == timezone.localdate(),
+        'itens': itens,
+        'total': total,
+        'feitas': feitas,
+        'percentual': percentual,
+    })
+
+
+@login_required
+@require_POST
+def atividade_criar(request):
+    form = AtividadeForm(request.POST)
+    if form.is_valid():
+        atividade = form.save(commit=False)
+        atividade.usuario = request.user
+        atividade.save()
+        messages.success(request, 'Atividade criada! Ela aparece a partir de hoje.')
+    else:
+        messages.error(request, 'Informe um nome válido para a atividade.')
+    return redirect('checklist')
+
+
+@login_required
+@require_POST
+def atividade_arquivar(request, pk):
+    atividade = get_object_or_404(Atividade, pk=pk, usuario=request.user)
+    atividade.ativa = False
+    atividade.save(update_fields=['ativa'])
+    messages.success(request, 'Atividade arquivada. O histórico foi mantido.')
+    return redirect('checklist')
+
+
+@login_required
+@require_POST
+def checklist_marcar(request, pk):
+    item = get_object_or_404(AtividadeDia, pk=pk, atividade__usuario=request.user)
+    item.concluida = request.POST.get('concluida') == 'true'
+    item.save(update_fields=['concluida'])
+    total, feitas, percentual = _resumo_checklist(request.user, item.data)
+    return JsonResponse({
+        'concluida': item.concluida,
+        'total': total,
+        'feitas': feitas,
+        'percentual': percentual,
+    })

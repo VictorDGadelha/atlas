@@ -1,5 +1,5 @@
 from django import forms
-from .models import RegistroPeso, Refeicao
+from .models import Atividade, RegistroPeso, Refeicao
 
 
 class RegistroPesoForm(forms.ModelForm):
@@ -39,3 +39,13 @@ class RefeicaoForm(forms.ModelForm):
                 attrs={'class': 'form-control', 'min': 0, 'placeholder': 'Opcional'}
             ),
         }    
+
+class AtividadeForm(forms.ModelForm):
+    class Meta:
+        model = Atividade
+        fields = ['nome']
+        widgets = {
+            'nome': forms.TextInput(
+                attrs={'class': 'form-control', 'placeholder': 'Ex.: Beber 2L de água'}
+            ),
+        }
