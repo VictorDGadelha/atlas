@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% block title %}Peso{% endblock %}
+
+{% block content %}
+<h1 class="h3 mb-4">Controle de peso</h1>
+
+<div class="row g-4">
+    <div class="col-md-5">
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <h2 class="h5">Registrar peso</h2>
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ form.data.id_for_label }}">Data</label>
+                        {{ form.data }}
+                        {{ form.data.errors }}
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="{{ form.peso.id_for_label }}">Peso (kg)</label>
+                        {{ form.peso }}
+                        {{ form.peso.errors }}
+                    </div>
+                    <button class="btn btn-primary w-100">Salvar</button>
+                    <div class="form-text mt-2">
+                        Para corrigir um dia, salve de novo com a mesma data.
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        {% if atual %}
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <div class="text-muted small">Último registro ({{ atual.data|date:"d/m/Y" }})</div>
+                <div class="display-6">{{ atual.peso }} kg</div>
+                {% if variacao is not None %}
+                    <div class="small text-muted">
+                        {% if variacao > 0 %}+{{ variacao }}{% else %}{{ variacao }}{% endif %} kg
+                        em relação ao registro anterior
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="col-md-7">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <h2 class="h5">Histórico</h2>
+                {% if registros %}
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                        <thead>
+                            <tr><th>Data</th><th>Peso</th><th></th></tr>
+                        </thead>
+                        <tbody>
+                            {% for r in registros %}
+                            <tr>
+                                <td>{{ r.data|date:"d/m/Y" }}</td>
+                                <td>{{ r.peso }} kg</td>
+                                <td class="text-end">
+                                    <form method="post" action="{% url 'peso_excluir' r.pk %}"
+                                          onsubmit="return confirm('Excluir este registro?');">
+                                        {% csrf_token %}
+                                        <button class="btn btn-outline-danger btn-sm">Excluir</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted mb-0">Nenhum registro ainda.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
